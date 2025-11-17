@@ -98,6 +98,62 @@ class HoldsRepository extends BaseRepository implements HoldsRepositoryInterface
     {
         $status = null;
 
+        try {
+
+            // Начинаем транзакцию
+            DB::transaction(function () use ($id, &$status) {
+
+                // Получаем текущий холд, чтобы убедиться, что он существует и получить ид слота, к которому относится данный холд
+                $hold = Hold::with('slot')->where('id', $id)->get()->first();
+
+                if (!empty($hold)) {
+
+                    // Если всё ок и холд существует, проверяем, не истекло ли его время жизни (5 минут)
+                    $now = Carbon::now();
+                    $hold_time = Carbon::parse($hold->created_at)->addMinutes(5);
+                    if ( $hold_time < $now ) {
+
+                        $status = 409;
+                    } else {
+
+                        // Блокируем все холды для данного слота. Такой уровень изоляции гарантирует защиту от оверсела, но при этом не затрагивает работу по другими слотам.
+                        Hold::where('slot_id', $hold->slot_id)->lockForUpdate()->get();
+
+                        // Получаем информацию о слоте
+                        $slot = $hold->slot;
+
+                        // Проверяем доступность мест
+                        if ($slot->remaining > 0) {
+
+                            // Переводим холд в состояние подтвержден.
+                            $hold->status = $this->model::STATUS_CONFIRMED;
+                            $hold->save();
+
+                            // Атомарно уменьшаем доступность мест в слоте
+                            $slot->decrement('remaining');
+
+                            // Инвалидируем кеш
+                            Cache::forget('slots:by_id:'.$hold->slot->id);
+                            Cache::forget('slots:all');
+
+                            $status = 200;
+                        } else {
+
+                            $status = 409;
+                        }
+                    }
+                } else {
+
+                    throw new \Exception('Hold not found');
+                }
+
+            });
+        } catch (\Exception $e) {
+
+            report($e);
+            throw new \Exception($e);
+        }
+
         return $status;
     }
 

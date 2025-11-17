@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Repositories\Interfaces\HoldsRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -9,8 +10,17 @@ use Illuminate\Http\JsonResponse;
  */
 class HoldController extends Controller
 {
-    public function __construct()
+
+    /**
+     * @var HoldsRepositoryInterface
+     */
+    protected $holdsRepository;
+
+    public function __construct(
+        HoldsRepositoryInterface $holdsRepository
+    )
     {
+        $this->holdsRepository = $holdsRepository;
     }
 
     /**
@@ -25,7 +35,9 @@ class HoldController extends Controller
     {
         $data = ["status" => ""];
 
-        return response()->json($data, 200);
+        $status = $this->holdsRepository->setConfirm($id);
+
+        return response()->json($data, $status);
     }
 
     /**
