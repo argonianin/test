@@ -203,16 +203,11 @@ class HoldsRepository extends BaseRepository implements HoldsRepositoryInterface
                     $hold->status = $this->model::STATUS_CANCELLED;
                     $hold->save();
 
-                    $slot = Slot::where('id', $hold->slot_id)->get()->first();
-                    if (!empty($slot)) {
+                    $slot = $hold->slot;
 
-                        // Атомарно увеличиваем доступность мест в слоте
-                        $slot->increment('remaining');
-
-                        $status = 200;
-                    } else {
-                        throw new \Exception('Slot not found');
-                    }
+                    // Атомарно увеличиваем доступность мест в слоте
+                    $slot->increment('remaining');
+                    $status = 200;
 
                     // Инвалидируем кеш
                     Cache::forget('slots:by_id:'.$hold->slot_id);
