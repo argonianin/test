@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Repositories\Interfaces\SlotsRepositoryInterface;
 use Illuminate\Http\Request;
 use \Illuminate\Http\JsonResponse;
 
@@ -12,17 +13,30 @@ use \Illuminate\Http\JsonResponse;
 class AvailabilityController extends Controller
 {
 
-    public function __construct()
+    /**
+     * @var SlotsRepositoryInterface
+     */
+    protected $slotsRepository;
+
+    public function __construct(
+        SlotsRepositoryInterface $slotsRepository
+    )
     {
+        $this->slotsRepository = $slotsRepository;
     }
 
     /**
      * Метод отдаёт перечень доступных слотов
+     *
      * @return JsonResponse
      */
     public function availability(): JsonResponse
     {
-        $data = [];
+        try {
+            $data = $this->slotsRepository->getAvailability();
+        } catch (\Exception $e) {
+            return response()->json([], 409);
+        }
 
         return response()->json($data, 200);
     }
