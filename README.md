@@ -22,7 +22,9 @@ git clone git@github.com:argonianin/test.git
 composer install
 ```
 
-После установки, прописать в .env еквизиты доступа к бд и redis
+После установки, прописать в .env реквизиты доступа к бд и redis
+В качестве источника кеширования указать redis
+CACHE_STORE=redis
 
 ### Выполнить миграции
 
