@@ -51,7 +51,9 @@ class HoldController extends Controller
     {
         $data = ["status" => ""];
 
-        return response()->json($data, 200);
+        $status = $this->holdsRepository->deleteHold($id);
+
+        return response()->json($data, $status);
     }
 
 }

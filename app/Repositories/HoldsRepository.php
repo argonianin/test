@@ -169,6 +169,61 @@ class HoldsRepository extends BaseRepository implements HoldsRepositoryInterface
 
         $status = null;
 
+        // Получаем текущий холд
+        $hold = Hold::where('id', $id)->get()->first();
+
+        if (!empty($hold)) {
+
+            // Если статус холда - просто захолдирован, тогда меняем статус и всё
+            if ($hold->status == $this->model::STATUS_HELD) {
+
+                try {
+
+                    // Начинаем транзакцию
+                    DB::transaction(function () use ($hold, &$status) {
+
+                        // Переводим холд в статус отменен
+                        $hold->status = $this->model::STATUS_CANCELLED;
+                        $hold->save();
+                    });
+
+                    $status = 200;
+                } catch (\Exception $e) {
+
+                    report($e);
+                    throw new \Exception($e);
+                }
+
+            // Если статус холда - подтверждён, тогда меняем статус (в любом случае), проверяем существование слота самого по себе, увеличиваем доступность мест и инвалидируем кеш
+            } elseif ($hold->status == $this->model::STATUS_CONFIRMED) {
+
+                DB::transaction(function () use ($hold, &$status) {
+
+                    // Переводим холд в статус отменен
+                    $hold->status = $this->model::STATUS_CANCELLED;
+                    $hold->save();
+
+                    $slot = Slot::where('id', $hold->slot_id)->get()->first();
+                    if (!empty($slot)) {
+
+                        // Атомарно увеличиваем доступность мест в слоте
+                        $slot->increment('remaining');
+
+                        $status = 200;
+                    } else {
+                        throw new \Exception('Slot not found');
+                    }
+
+                    // Инвалидируем кеш
+                    Cache::forget('slots:by_id:'.$hold->slot_id);
+                    Cache::forget('slots:all');
+                });
+            }
+        } else {
+
+            throw new \Exception('Hold not found');
+        }
+
         return $status;
     }
 
